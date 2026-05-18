@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>{{ obsspace.name }}</title>
+</head>
+
+<body>
+
+<h1>
+    {{ dataset.name }} /
+    {{ obsspace.name }}
+</h1>
+
+{% for variable in obsspace.variables %}
+
+    <h2>{{ variable.name }}</h2>
+
+    {% for metric_name, metric in variable.metrics.items() %}
+
+        <h3>{{ metric_name }}</h3>
+
+        <img
+            src="{{ metric.local_path }}"
+            alt="{{ variable.name }}"
+        >
+
+    {% endfor %}
+
+{% endfor %}
+
+</body>
+
+</html>
