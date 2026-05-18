@@ -1,35 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="utf-8">
-    <title>{{ obsspace.name }}</title>
-</head>
+{% block title %}{{ obsspace.name }}{% endblock %}
 
-<body>
+{% block content %}
 
-<h1>
-    {{ dataset.name }} /
-    {{ obsspace.name }}
-</h1>
+<h1>{{ dataset.name }} / {{ obsspace.name }}</h1>
 
 {% for variable in obsspace.variables %}
+
+<div class="plot">
 
     <h2>{{ variable.name }}</h2>
 
     {% for metric_name, metric in variable.metrics.items() %}
 
-        <h3>{{ metric_name }}</h3>
-
-        <img
-            src="{{ metric.local_path }}"
-            alt="{{ variable.name }}"
-        >
+        <div class="plot">
+            <h3>{{ metric_name }}</h3>
+            <img src="{{ metric.local_path }}" alt="{{ variable.name }}">
+        </div>
 
     {% endfor %}
 
+    {% if variable.snapshots %}
+
+        <h4>Latest Snapshots</h4>
+
+        <div class="snapshots">
+
+            {% for snapshot in variable.snapshots %}
+
+            <div class="snapshot">
+                <p><strong>Cycle:</strong> {{ snapshot.cycle }}</p>
+                <img src="{{ snapshot.local_path }}">
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    {% endif %}
+
+</div>
+
 {% endfor %}
 
-</body>
-
-</html>
+{% endblock %}

@@ -1,131 +1,42 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
+{% block title %}NCDB Monitor{% endblock %}
 
-    <meta charset="utf-8">
-
-    <title>NCDB Monitor</title>
-
-    <style>
-
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-            background: #f5f5f5;
-        }
-
-        h1 {
-            margin-bottom: 20px;
-        }
-
-        .tabs {
-            margin-bottom: 20px;
-        }
-
-        .tab-button {
-            padding: 10px 20px;
-            margin-right: 10px;
-            border: none;
-            border-radius: 5px;
-            background: #cccccc;
-            cursor: pointer;
-        }
-
-        .tab-button.active {
-            background: #4a90e2;
-            color: white;
-        }
-
-        .dataset {
-            display: none;
-        }
-
-        .dataset.active {
-            display: block;
-        }
-
-        .plot {
-            background: white;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-radius: 8px;
-        }
-
-        img {
-            max-width: 100%;
-            border: 1px solid #ccc;
-            background: white;
-        }
-
-    </style>
-
+{% block extra_head %}
     <script>
-
         function showDataset(name) {
-
-            const datasets =
-                document.querySelectorAll(".dataset");
-
-            datasets.forEach(dataset => {
+            document.querySelectorAll(".dataset").forEach(dataset => {
                 dataset.classList.remove("active");
             });
 
-            const buttons =
-                document.querySelectorAll(".tab-button");
-
-            buttons.forEach(button => {
+            document.querySelectorAll(".tab-button").forEach(button => {
                 button.classList.remove("active");
             });
 
-            document
-                .getElementById("dataset-" + name)
-                .classList
-                .add("active");
-
-            document
-                .getElementById("button-" + name)
-                .classList
-                .add("active");
+            document.getElementById("dataset-" + name).classList.add("active");
+            document.getElementById("button-" + name).classList.add("active");
         }
 
         window.onload = function() {
-
-            const first =
-                document.querySelector(".tab-button");
-
+            const first = document.querySelector(".tab-button");
             if (first) {
                 first.click();
             }
         };
-
     </script>
+{% endblock %}
 
-</head>
-
-<body>
-
+{% block content %}
 <h1>NCDB Monitor</h1>
 
 <div class="meta">
-
-    <p>
-        Generated:
-        {{ website.meta.generated_at }}
-    </p>
-
-    <p>
-        Database:
-        {{ website.meta.database_file }}
-    </p>
-
+    <p>Generated: {{ website.meta.generated_at }}</p>
+    <p>Database: {{ website.meta.database_file }}</p>
 </div>
+
 {% if website.run %}
-
 <div class="run-report">
-
     <h2>Last Run</h2>
-
     <ul>
         <li>Status: {{ website.run.status }}</li>
         <li>Start: {{ website.run.start_time }}</li>
@@ -134,83 +45,40 @@
         <li>Scanner: {{ website.run.scanner }}</li>
         <li>N cycles: {{ website.run.n_cycles }}</li>
     </ul>
-
 </div>
-
 {% endif %}
 
-
 <div class="tabs">
-
     {% for dataset in website.datasets %}
-
-    <button
-        class="tab-button"
-        id="button-{{ dataset.name }}"
-        onclick="showDataset('{{ dataset.name }}')"
-    >
-
+    <button class="tab-button" id="button-{{ dataset.name }}" onclick="showDataset('{{ dataset.name }}')">
         {{ dataset.name }}
-
     </button>
-
     {% endfor %}
-
 </div>
 
 {% for dataset in website.datasets %}
-
-<div
-    class="dataset"
-    id="dataset-{{ dataset.name }}"
->
-
+<div class="dataset" id="dataset-{{ dataset.name }}">
     <h2>{{ dataset.name }}</h2>
-
-	<p>
-		Root directory:
-		{{ dataset.root_dir }}
-	</p>
+    <p>Root directory: {{ dataset.root_dir }}</p>
 
     {% for obsspace in dataset.obsspaces %}
+	<div class="plot">
 
-    <div class="plot">
-
-        <h3>
-
+		<h3>
 			<a href="{{ dataset.name }}/{{ obsspace.safe_name }}/">
 				{{ obsspace.name }}
 			</a>
+		</h3>
 
-        </h3>
+		{% set v = obsspace.preview_variable %}
 
-        {% if obsspace.variables %}
+		{% if v %}
+			<img src="{{ v.metrics.nobs.path }}">
+		{% endif %}
 
-            {% set variable =
-                obsspace.variables[0]
-            %}
-
-            {% if "nobs" in variable.metrics %}
-
-            <img
-                src="
-                    {{ variable.metrics.nobs.path }}
-                "
-                alt="{{ variable.name }}"
-            >
-
-            {% endif %}
-
-        {% endif %}
-
-    </div>
+	</div>
 
     {% endfor %}
-
 </div>
-
 {% endfor %}
-
-</body>
-
-</html>
+{% endblock %}

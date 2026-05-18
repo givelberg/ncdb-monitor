@@ -48,120 +48,173 @@ def load_latest_run(website_dir):
         return json.load(f)
 
 
+def get_preview_variable(obsspace, obsspace_info):
+    for var in obsspace_info["variables"]:
+        if "nobs" in var["metrics"]:
+            return var
+    return None
+
+
 def generate_time_series_plots(
-    dataset,
+    obsspace,
     metric_name,
     plot_dir
 ):
 
     plots = []
 
-    for obsspace_name in dataset.list_obsspaces():
+    obsspace_name = obsspace.name
 
-        obsspace = dataset.obsspace(obsspace_name)
+    variables = obsspace.list_variables(
+        group="ObsValue"
+    )
 
-        variables = obsspace.list_variables(
-            group="ObsValue"
+    for var in variables:
+
+        try:
+
+            field = obsspace.field(var)
+
+            metric = getattr(
+                field,
+                metric_name
+            )
+
+        except Exception as e:
+
+            logger.debug(
+                f"Skipping "
+                f"{obsspace_name}:{var} "
+                f"metric={metric_name} "
+                f"due to {e}"
+            )
+
+            continue
+
+        out_file = (
+            safe_name(var)
+            + ".png"
         )
 
-        for var in variables:
+        plot_path = os.path.join(
+            plot_dir,
+            out_file
+        )
 
-            try:
+        logger.info(
+            f"Generating "
+            f"{metric_name} plot "
+            f"{plot_path}"
+        )
 
-                field = obsspace.field(var)
-
-                metric = getattr(
-                    field,
-                    metric_name
-                )
-
-            except Exception as e:
-
-                logger.debug(
-                    f"Skipping "
-                    f"{obsspace_name}:{var} "
-                    f"metric={metric_name} "
-                    f"due to {e}"
-                )
-
-                continue
-
-            out_file = (
-                safe_name(
-                    f"{obsspace_name}_{var}"
-                )
-                + ".png"
-            )
-
-            plot_path = os.path.join(
-                plot_dir,
-                out_file
-            )
-
-            logger.info(
-                f"Generating "
-                f"{metric_name} plot "
-                f"{plot_path}"
-            )
+        try:
 
             metric.plot(plot_path)
 
-            plots.append({
-                "name": f"{obsspace_name}:{var}",
-                "path": out_file,
-            })
+        except Exception as e:
+
+            logger.debug(
+                f"Failed plotting "
+                f"{obsspace_name}:{var} "
+                f"metric={metric_name} "
+                f"due to {e}"
+            )
+
+            continue
+
+        plots.append({
+
+            "variable": var,
+
+            "path": out_file
+        })
 
     return plots
 
-def old_generate_nobs_plots(dataset, plot_dir):
+def generate_snapshot_plots(
+    field,
+    plot_dir,
+    n_latest_cycles=4
+):
 
     plots = []
 
-    for obsspace_name in dataset.list_obsspaces():
+    try:
 
-        obsspace = dataset.obsspace(obsspace_name)
+        cycles = field.cycles()
 
-        variables = obsspace.list_variables(
-            group="ObsValue"
+    except Exception as e:
+
+        logger.debug(
+            f"Could not get cycles "
+            f"due to {e}"
         )
 
-        for var in variables:
+        return plots
 
-            try:
-                field = obsspace.field(var)
-                nobs = field.nobs
+    latest_cycles = cycles[-n_latest_cycles:]
 
-            except Exception as e:
+    for t in latest_cycles:
 
-                logger.debug(
-                    f"Skipping {obsspace_name}:{var} "
-                    f"due to {e}"
+        try:
+
+            value = field[t]
+
+        except Exception as e:
+
+            logger.debug(
+                f"Skipping snapshot "
+                f"time={t} "
+                f"due to {e}"
+            )
+
+            continue
+
+        cycle_string = (
+            t.strftime("%Y%m%d%H")
+        )
+
+        out_file = (
+            safe_name(
+                cycle_string
+            )
+            + ".png"
+        )
+
+        plot_path = os.path.join(
+            plot_dir,
+            out_file
+        )
+
+        logger.info(
+            f"Generating snapshot "
+            f"{plot_path}"
+        )
+
+        try:
+
+            value.plot(plot_path)
+
+        except Exception as e:
+
+            logger.debug(
+                f"Failed plotting "
+                f"time={t} "
+                f"due to {e}"
+            )
+
+            continue
+
+        plots.append({
+
+            "cycle": (
+                t.strftime(
+                    "%Y-%m-%d %H:%M"
                 )
+            ),
 
-                continue
-
-            out_file = (
-                safe_name(
-                    f"{obsspace_name}_{var}"
-                )
-                + ".png"
-            )
-
-            plot_path = os.path.join(
-                plot_dir,
-                out_file
-            )
-
-            logger.info(
-                f"Generating plot {plot_path}"
-            )
-
-            nobs.plot(plot_path)
-
-            plots.append({
-                "name": f"{obsspace_name}:{var}",
-                "path": out_file,
-            })
+            "path": out_file
+        })
 
     return plots
 
@@ -199,6 +252,36 @@ def generate_obsspace_data(
         "variables": []
     }
 
+    #
+    # generate all time-series plots
+    #
+
+    metric_plots = {}
+
+    for metric_name in metric_names:
+
+        metric_dir = os.path.join(
+            obsspace_dir,
+            metric_name
+        )
+
+        os.makedirs(
+            metric_dir,
+            exist_ok=True
+        )
+
+        metric_plots[metric_name] = (
+            generate_time_series_plots(
+                obsspace,
+                metric_name,
+                metric_dir
+            )
+        )
+
+    #
+    # per-variable organization
+    #
+
     variables = obsspace.list_variables(
         group="ObsValue"
     )
@@ -211,9 +294,47 @@ def generate_obsspace_data(
         )
 
         variable_info = {
+
             "name": var,
-            "metrics": {}
+
+            "metrics": {},
+
+            "snapshots": []
         }
+
+        #
+        # attach metric plots
+        #
+
+        for metric_name in metric_names:
+
+            for plot in metric_plots[
+                metric_name
+            ]:
+
+                if plot["variable"] != var:
+                    continue
+
+                variable_info["metrics"][
+                    metric_name
+                ] = {
+
+                    "path": (
+                        f"{dataset_name}/"
+                        f"{obsspace_safe_name}/"
+                        f"{metric_name}/"
+                        f"{plot['path']}"
+                    ),
+
+                    "local_path": (
+                        f"{metric_name}/"
+                        f"{plot['path']}"
+                    )
+                }
+
+        #
+        # generate snapshot plots
+        #
 
         try:
 
@@ -229,74 +350,53 @@ def generate_obsspace_data(
 
             continue
 
-        for metric_name in metric_names:
+        snapshots_dir = os.path.join(
+            obsspace_dir,
+            "snapshots",
+            safe_name(var)
+        )
 
-            try:
+        os.makedirs(
+            snapshots_dir,
+            exist_ok=True
+        )
 
-                metric = getattr(
-                    field,
-                    metric_name
-                )
-
-            except Exception as e:
-
-                logger.debug(
-                    f"Skipping metric "
-                    f"{metric_name} "
-                    f"for "
-                    f"{obsspace_name}:{var} "
-                    f"due to {e}"
-                )
-
-                continue
-
-            metric_dir = os.path.join(
-                obsspace_dir,
-                metric_name
+        snapshot_plots = (
+            generate_snapshot_plots(
+                field,
+                snapshots_dir
             )
+        )
 
-            os.makedirs(
-                metric_dir,
-                exist_ok=True
-            )
+        for plot in snapshot_plots:
 
-            out_file = (
-                safe_name(var)
-                + ".png"
-            )
+            variable_info[
+                "snapshots"
+            ].append({
 
-            plot_path = os.path.join(
-                metric_dir,
-                out_file
-            )
+                "cycle": plot["cycle"],
 
-            logger.info(
-                f"Generating "
-                f"{metric_name} plot "
-                f"{plot_path}"
-            )
-
-            metric.plot(plot_path)
-
-            variable_info["metrics"][
-                metric_name
-            ] = {
                 "path": (
                     f"{dataset_name}/"
                     f"{obsspace_safe_name}/"
-                    f"{metric_name}/"
-                    f"{out_file}"
+                    f"snapshots/"
+                    f"{safe_name(var)}/"
+                    f"{plot['path']}"
                 ),
 
                 "local_path": (
-                    f"{metric_name}/"
-                    f"{out_file}"
+                    f"snapshots/"
+                    f"{safe_name(var)}/"
+                    f"{plot['path']}"
                 )
-            }
+            })
 
         obsspace_info[
             "variables"
         ].append(variable_info)
+
+    preview_var = get_preview_variable(obsspace, obsspace_info)
+    obsspace_info["preview_variable"] = preview_var
 
     return obsspace_info
 
@@ -311,7 +411,7 @@ def generate_website_data(db, website_dir):
                     "%Y-%m-%d %H:%M:%S UTC"
                 )
             ),
-            "database_file": str(db.db_path),
+            "database_file": str(db.path),
         },
 
         "run": load_latest_run(website_dir),
@@ -385,90 +485,6 @@ def generate_website_data(db, website_dir):
             indent=2
         )
 
-
-def old_generate_website_data(db, website_dir):
-
-    website_data = {
-        "datasets": []
-    }
-
-    for dataset in db.datasets():
-        dataset_name = dataset.name
-
-        logger.info(f"Processing dataset {dataset_name}")
-
-        # dataset = db.dataset(dataset_name)
-
-        dataset_dir = os.path.join(
-            website_dir,
-            dataset_name
-        )
-
-        os.makedirs(dataset_dir, exist_ok=True)
-
-        metrics = {}
-
-        for metric_name in ["nobs", "mean"]:
-
-            metric_dir = os.path.join(
-                dataset_dir,
-                metric_name
-            )
-
-            os.makedirs(
-                metric_dir,
-                exist_ok=True
-            )
-
-            metrics[metric_name] = (
-                generate_time_series_plots(
-                    dataset,
-                    metric_name,
-                    metric_dir
-                )
-            )
-
-        dataset_info = {
-            "name": dataset_name,
-            "metrics": metrics,
-        }
-
-        # nobs_plot_dir = os.path.join(
-            # dataset_dir,
-            # "nobs"
-        # )
-# 
-        # os.makedirs(nobs_plot_dir, exist_ok=True)
-# 
-        # plots = generate_nobs_plots(
-            # dataset,
-            # nobs_plot_dir
-        # )
-# 
-        # dataset_info = {
-            # "name": dataset_name,
-            # "plots": plots,
-        # }
-
-        website_data["datasets"].append(
-            dataset_info
-        )
-
-    website_data_file = os.path.join(
-        website_dir,
-        WEBSITE_DATA_FILE
-    )
-
-    with open(website_data_file, "w") as f:
-        json.dump(
-            website_data,
-            f,
-            indent=2
-        )
-
-    # return website_data
-
-
 ##########################################################
 
 
@@ -484,71 +500,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-def old_main():
-    db = Database("emcda.db")
-
-    print(db.list_datasets())
-
-    ds = db.dataset("gdas")
-
-    # last 4 cycles
-    cycles = ds.cycles[-4:]
-
-    # t = ds.cycles[-1]
-    cycle = ds.cycles[-1]
-    t = datetime.combine(
-        cycle.cycle_date,
-        time(int(cycle.cycle_hour))
-    )
-
-    # ensure output dirs
-    os.makedirs(os.path.join(OUT_DIR, "images"), exist_ok=True)
-
-    # generate plots (placeholder for now)
-    plots = []
-
-    # for obsspace_name in ds.list_obsspaces():
-        # obs = ds.obsspace(obsspace_name)
-        # for var_name in obs.list_variables():
-            # try:
-                # field = obs.field(var_name)
-                # f_t = field[t]
-            # except Exception:
-                # continue
-
-
-    for obsspace_name in ds.list_obsspaces():
-        obsspace = ds.obsspace(obsspace_name)
-
-        try:
-            field = obsspace.field("/ObsValue/seaSurfaceTemperature")
-        except Exception:
-            continue  # this obs space doesn't have SST
-
-        try:
-            f_t = field[t]
-        except Exception:
-            continue  # no data for this time
-
-        coords = f_t.coords
-
-        has_lat = "latitude" in coords
-        has_lon = "longitude" in coords
-        has_depth = "depth" in coords or "level" in coords
-
-        if has_lat and has_lon and not has_depth:
-            out_file = f"images/{obsspace.name}.png"
-            plot_path = os.path.join(OUT_DIR, out_file)
-
-            logger.info(f"Generating plot {plot_path}")
-            result_path = f_t.plot(plot_path)
-
-            plots.append({
-                "name": obsspace.name,
-                "path": out_file,
-            })
