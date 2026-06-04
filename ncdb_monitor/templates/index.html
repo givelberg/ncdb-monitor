@@ -38,8 +38,8 @@
 
 {% for dataset in website.datasets %}
 <div class="dataset" id="dataset-{{ dataset.dir_name }}">
-       <p><strong>Data Directory:</strong> <abbr title="{{ dataset.root_dir }}">{{ dataset.root_dir.split('/')[-1] if '/' in dataset.root_dir else dataset.root_dir }}</abbr></p>
-    <p><strong>Database Status:</strong> {{ dataset.obsspaces|length }} trackable target spaces available</p>
+    <p>Directory: <abbr title="{{ dataset.root_dir }}">{{ dataset.root_dir.split('/')[-1] if '/' in dataset.root_dir else dataset.root_dir }}</abbr></p>
+    <p>{{ dataset.obsspaces|length }} obsspaces</p>
 
     {% for obsspace in dataset.obsspaces %}
         <div class="plot">

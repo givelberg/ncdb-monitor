@@ -119,11 +119,14 @@
         </div>
         {% if website.run %}
         <div class="top-bar-section">
-            <span><strong>Last scan:</strong> 
-                <abbr title="{{ website.run.scanner }} directory or logs context">data-dir</abbr>, 
-                {{ website.run.end_time }}, 
-                {{ website.run.n_cycles }} cycles scanned, 
-                <strong>scanner:</strong> {{ website.run.scanner }}
+            <span>
+                {% if website.run.data_dir %}
+                    <strong>Last scan:</strong> 
+                    <abbr title="{{ website.run.data_dir }}">{{ website.run.data_dir.split('/')[-1] }}</abbr>,
+                    {{ website.run.end_time }}, 
+                    {{ website.run.n_cycles }} cycles scanned, 
+                    <strong>scanner:</strong> {{ website.run.scanner }}
+                {% endif %}
             </span>
         </div>
         {% endif %}

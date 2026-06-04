@@ -124,6 +124,7 @@ def cmd_run(args):
         "website_dir": str(args.website_dir),
         "scanner": args.scanner,
         "n_cycles": args.n_cycles,
+        "data_dir": str(args.data_dir),  # Added to propagate data directory metadata to report
     }
 
     save_run_report(args.website_dir, run_report)
@@ -248,13 +249,13 @@ def build_parser():
         # "serve",
         # help="Serve generated website"
     # )
-# 
+#  
     # serve_parser.add_argument(
         # "--website-dir",
         # required=True,
         # help="Website output directory"
     # )
-# 
+#  
     # serve_parser.add_argument(
         # "--port",
         # type=int,
