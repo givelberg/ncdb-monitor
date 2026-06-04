@@ -11,6 +11,7 @@ from pathlib import Path
 from datetime import datetime, time
 import re
 import json
+import hashlib
 from ncdb.api.database import Database
 from ncdb_monitor.config import WEBSITE_DATA_FILE
 
@@ -18,7 +19,8 @@ from ncdb_monitor.config import WEBSITE_DATA_FILE
 def safe_name(name: str) -> str:
     """
     Convert a variable/obsspace name into a filesystem-safe filename.
-    Example: "ObsValue/seaSurfaceTemperature" -> "ObsValue_seaSurfaceTemperature"
+    Example: "ObsValue/seaSurfaceTemperature" -> "ObsValue_seaSurfaceTemperatur
+e"
     """
     # replace path separators and spaces
     name = name.replace("/", "_").replace(" ", "_")
@@ -201,7 +203,7 @@ def generate_snapshot_plots(
                 f"Failed plotting "
                 f"time={t} "
                 f"due to {e}"
-            )
+        )
 
             continue
 
@@ -222,8 +224,11 @@ def generate_obsspace_data(
     dataset_name,
     obsspace,
     dataset_dir,
-    metric_names
+    metric_names,
+    dataset_dir_name=None  # Added argument to receive unique folder identifier
 ):
+    if dataset_dir_name is None:
+        dataset_dir_name = dataset_name
 
     obsspace_name = obsspace.name
 
@@ -320,7 +325,7 @@ def generate_obsspace_data(
                 ] = {
 
                     "path": (
-                        f"{dataset_name}/"
+                        f"{dataset_dir_name}/"  # Modified to use unique folder string
                         f"{obsspace_safe_name}/"
                         f"{metric_name}/"
                         f"{plot['path']}"
@@ -377,7 +382,7 @@ def generate_obsspace_data(
                 "cycle": plot["cycle"],
 
                 "path": (
-                    f"{dataset_name}/"
+                    f"{dataset_dir_name}/"  # Modified to use unique folder string
                     f"{obsspace_safe_name}/"
                     f"snapshots/"
                     f"{safe_name(var)}/"
@@ -433,9 +438,16 @@ def generate_website_data(db, website_dir):
             f"{dataset_name}"
         )
 
+        # Added unique name check using either unique ID or path hash fallback
+        if hasattr(dataset, "id") and dataset.id is not None:
+            dataset_dir_name = f"{dataset_name}_id{dataset.id}"
+        else:
+            root_hash = hashlib.md5(str(dataset.root_dir).encode("utf-8")).hexdigest()[:8]
+            dataset_dir_name = f"{dataset_name}_{root_hash}"
+
         dataset_dir = os.path.join(
             website_dir,
-            dataset_name
+            dataset_dir_name  # Modified to use distinct folder path identifier
         )
 
         os.makedirs(
@@ -446,10 +458,12 @@ def generate_website_data(db, website_dir):
         dataset_info = {
             "name": dataset_name,
             "root_dir": dataset.root_dir,
+            "dir_name": dataset_dir_name,  # Added to track isolated asset directory name
             "obsspaces": []
         }
 
-        for obsspace_name in dataset.list_obsspaces():
+        obsspace_names = [n.name for n in dataset.obsspaces()]
+        for obsspace_name in obsspace_names:
 
             obsspace = dataset.obsspace(
                 obsspace_name
@@ -460,7 +474,8 @@ def generate_website_data(db, website_dir):
                     dataset_name,
                     obsspace,
                     dataset_dir,
-                    metric_names
+                    metric_names,
+                    dataset_dir_name=dataset_dir_name  # Passed unique identifier downstream
                 )
             )
 
@@ -492,7 +507,8 @@ def main():
     db = Database("emcda.db")
     logger.info(db.list_datasets())
 
-    generate_website_data(db)
+    website_dir = "./website" # Added missing local variable to allow testing main directly
+    generate_website_data(db, website_dir) # Fixed signature parameter pass mismatch
     generate_html(
         website_data,
         website_dir
@@ -500,3 +516,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

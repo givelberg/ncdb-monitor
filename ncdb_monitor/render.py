@@ -93,7 +93,8 @@ def generate_html(website_dir):
 
     for dataset in website_data["datasets"]:
 
-        dataset_name = dataset["name"]
+        # Switched from dataset["name"] to the unique folder key to align with generate.py
+        dataset_dir_name = dataset["dir_name"]
 
         for obsspace in dataset["obsspaces"]:
 
@@ -103,7 +104,7 @@ def generate_html(website_dir):
 
             obsspace_dir = os.path.join(
                 website_dir,
-                dataset_name,
+                dataset_dir_name,
                 obsspace_safe_name
             )
 
@@ -119,6 +120,8 @@ def generate_html(website_dir):
                     obsspace_dir,
                     "index.html"
                 ),
+                website=website_data,
                 dataset=dataset,
                 obsspace=obsspace
             )
+

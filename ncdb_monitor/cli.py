@@ -42,10 +42,15 @@ def cmd_scan(args):
     logger.info(f"Data root: {args.data_dir}")
     logger.info(f"Scanner: {args.scanner}")
 
-    db.scan(
+    report = db.scan(
         data_root=args.data_dir,
         n_cycles=args.n_cycles,
         scanner_cls=scanner_cls
+    )
+
+    logger.info(
+        f"Scan completed: "
+        f"{report['cycles_scanned']} cycles"
     )
 
 
@@ -124,23 +129,6 @@ def cmd_run(args):
     save_run_report(args.website_dir, run_report)
 
     return run_report
-
-def old_cmd_run(args):
-
-    logger.info("=== NCDB Monitor PIPELINE ===")
-
-    # 1. SCAN
-    logger.info("=== SCAN ===")
-    cmd_scan(args)
-
-    # 2. GENERATE
-    logger.info("=== GENERATE ===")
-    cmd_generate(args)
-
-    # 3. RENDER
-    logger.info("=== RENDER ===")
-    cmd_render(args)
-
 
 
 # the server is currently redundant

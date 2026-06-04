@@ -4,7 +4,7 @@
 
 {% block extra_head %}
     <script>
-        function showDataset(name) {
+        function showDataset(dirName) {
             document.querySelectorAll(".dataset").forEach(dataset => {
                 dataset.classList.remove("active");
             });
@@ -13,8 +13,8 @@
                 button.classList.remove("active");
             });
 
-            document.getElementById("dataset-" + name).classList.add("active");
-            document.getElementById("button-" + name).classList.add("active");
+            document.getElementById("dataset-" + dirName).classList.add("active");
+            document.getElementById("button-" + dirName).classList.add("active");
         }
 
         window.onload = function() {
@@ -27,56 +27,36 @@
 {% endblock %}
 
 {% block content %}
-<h1>NCDB Monitor</h1>
-
-<div class="meta">
-    <p>Generated: {{ website.meta.generated_at }}</p>
-    <p>Database: {{ website.meta.database_file }}</p>
-</div>
-
-{% if website.run %}
-<div class="run-report">
-    <h2>Last Run</h2>
-    <ul>
-        <li>Status: {{ website.run.status }}</li>
-        <li>Start: {{ website.run.start_time }}</li>
-        <li>End: {{ website.run.end_time }}</li>
-        <li>Duration: {{ website.run.duration_seconds }}s</li>
-        <li>Scanner: {{ website.run.scanner }}</li>
-        <li>N cycles: {{ website.run.n_cycles }}</li>
-    </ul>
-</div>
-{% endif %}
 
 <div class="tabs">
     {% for dataset in website.datasets %}
-    <button class="tab-button" id="button-{{ dataset.name }}" onclick="showDataset('{{ dataset.name }}')">
+    <button class="tab-button" id="button-{{ dataset.dir_name }}" onclick="showDataset('{{ dataset.dir_name }}')" title="Root directory: {{ dataset.root_dir }}">
         {{ dataset.name }}
     </button>
     {% endfor %}
 </div>
 
 {% for dataset in website.datasets %}
-<div class="dataset" id="dataset-{{ dataset.name }}">
-    <h2>{{ dataset.name }}</h2>
-    <p>Root directory: {{ dataset.root_dir }}</p>
+<div class="dataset" id="dataset-{{ dataset.dir_name }}">
+       <p><strong>Data Directory:</strong> <abbr title="{{ dataset.root_dir }}">{{ dataset.root_dir.split('/')[-1] if '/' in dataset.root_dir else dataset.root_dir }}</abbr></p>
+    <p><strong>Database Status:</strong> {{ dataset.obsspaces|length }} trackable target spaces available</p>
 
     {% for obsspace in dataset.obsspaces %}
-	<div class="plot">
+        <div class="plot">
 
-		<h3>
-			<a href="{{ dataset.name }}/{{ obsspace.safe_name }}/">
-				{{ obsspace.name }}
-			</a>
-		</h3>
+                <h3>
+                        <a href="{{ dataset.dir_name }}/{{ obsspace.safe_name }}/">
+                                {{ obsspace.name }}
+                        </a>
+                </h3>
 
-		{% set v = obsspace.preview_variable %}
+                {% set v = obsspace.preview_variable %}
 
-		{% if v %}
-			<img src="{{ v.metrics.nobs.path }}">
-		{% endif %}
+                {% if v %}
+                        <img src="{{ v.metrics.nobs.path }}">
+                {% endif %}
 
-	</div>
+        </div>
 
     {% endfor %}
 </div>
